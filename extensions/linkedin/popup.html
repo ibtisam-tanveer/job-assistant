@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        width: 280px;
+        padding: 12px;
+        margin: 0;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        margin-top: 8px;
+      }
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 4px;
+      }
+      button {
+        margin-top: 12px;
+        width: 100%;
+        padding: 8px;
+      }
+      #status {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #333;
+      }
+    </style>
+  </head>
+  <body>
+    <strong>Job Assistant</strong>
+    <label>API base URL <input id="apiUrl" type="text" placeholder="http://localhost:8000" /></label>
+    <label>Ingest secret <input id="secret" type="password" placeholder="INGEST_SECRET" /></label>
+    <label>Web app URL <input id="webUrl" type="text" placeholder="http://localhost:3000" /></label>
+    <button id="save">Save settings</button>
+    <button id="send">Send current tab (stub)</button>
+    <div id="status"></div>
+    <script src="popup.js"></script>
+  </body>
+</html>

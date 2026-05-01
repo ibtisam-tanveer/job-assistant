@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Job Assistant (LinkedIn)",
+  "version": "0.1.0",
+  "description": "Send the current LinkedIn job to Job Assistant (local API).",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "action": {
+    "default_title": "Job Assistant",
+    "default_popup": "popup.html"
+  }
+}
