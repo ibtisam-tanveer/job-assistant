@@ -190,6 +190,131 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 ---
 
+## Quick start (step by step)
+
+This section is for anyone who wants to **run the app on their own computer** without assuming prior backend experience.
+
+### What to install first
+
+Install these from their official websites if you do not already have them:
+
+| Tool | Why you need it |
+|------|-----------------|
+| [**Node.js** (LTS)](https://nodejs.org/) | Runs the website (`apps/web`). |
+| [**Python** 3.11+](https://www.python.org/downloads/) | Runs the API (`services/api`). |
+| [**MongoDB**](https://www.mongodb.com/try/download/community) **or** [**Docker Desktop**](https://www.docker.com/products/docker-desktop/) | Stores jobs and notes. With Docker you only run a container; no separate Mongo install. |
+| [**Google Chrome**](https://www.google.com/chrome/) | For the LinkedIn extension. |
+| [**OpenAI API key**](https://platform.openai.com/) (optional) | For “Generate resume / cover letter / ATS” on the apply page. |
+
+On **Windows**, use **PowerShell** or **Command Prompt** instead of Terminal where it says “terminal” below. On **Mac/Linux**, use the **Terminal** app.
+
+### 1. Open a terminal in the project folder
+
+The folder should be named `job-assistant` and contain `apps`, `services`, and `extensions`.
+
+### 2. Start MongoDB (database)
+
+**Option A — Docker (same on Mac, Windows, Linux)**  
+In the **project root** (where `docker-compose.yml` is):
+
+```bash
+docker compose up -d
+```
+
+**Option B — MongoDB installed on the machine**  
+Start MongoDB the way you normally do (e.g. Windows Service, `brew services`, etc.). The default in `.env` is `mongodb://localhost:27017/jobassistant`.
+
+### 3. Set up and run the API (backend)
+
+Open a terminal:
+
+```bash
+cd services/api
+python3 -m venv .venv
+```
+
+Activate the virtual environment:
+
+- **Mac / Linux:** `source .venv/bin/activate`
+- **Windows (cmd):** `.venv\Scripts\activate.bat`
+- **Windows (PowerShell):** `.venv\Scripts\Activate.ps1`
+
+Then:
+
+```bash
+pip install -r requirements.txt
+```
+
+Create your config file: copy `.env.example` to `.env` (same folder). Edit `.env` in any text editor:
+
+- **`INGEST_SECRET`** — choose any long random string for personal use (e.g. `jobassistant-local-dev-ingest`). You will paste the **same value** into the Chrome extension.
+- **`OPENAI_API_KEY`** — your `sk-...` key if you want AI-generated documents. You can leave it blank until you need that feature.
+- **`MONGODB_URI`** — leave as default unless you use a non-standard Mongo setup.
+
+Start the API (**leave this terminal open**):
+
+```bash
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
+```
+
+**Check:** in a browser open [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health). You should see `{"status":"ok"}`.
+
+### 4. Set up and run the website (frontend)
+
+Open a **second** terminal:
+
+```bash
+cd apps/web
+npm install
+```
+
+Copy `apps/web/.env.example` to `apps/web/.env.local`. It should contain:
+
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+Start the site (**leave this terminal open**):
+
+```bash
+npm run dev -- --hostname 127.0.0.1 --port 3000
+```
+
+**Check:** open [http://127.0.0.1:3000](http://127.0.0.1:3000). You should see the job inbox.
+
+### 5. Load the Chrome extension
+
+1. In Chrome, go to `chrome://extensions`.
+2. Turn **Developer mode** **ON** (top right).
+3. Click **Load unpacked** and select the folder **`extensions/linkedin`** inside this repo (the folder that contains `manifest.json`).
+4. Click the **Job Assistant** icon → enter:
+   - **API base URL:** `http://localhost:8000`
+   - **Web app URL:** `http://localhost:3000`
+   - **Ingest secret:** exactly the same string as **`INGEST_SECRET`** in `services/api/.env`
+5. Click **Save settings**.
+
+### 6. Normal use
+
+1. Start **MongoDB** (if not using Docker, ensure the service is running).
+2. Start the **API** (step 3) and the **website** (step 4).
+3. On LinkedIn, open a **full job posting** (with the description visible).
+4. Open the extension → **Send current LinkedIn job** → a tab should open on the apply page.
+5. On the apply page, paste your **profile / master resume** and click **Generate** if you configured OpenAI.
+
+### 7. If something goes wrong
+
+| Symptom | What to try |
+|--------|-------------|
+| “Cannot connect” / inbox error | API terminal running? Visit `/health`. |
+| Website shows a weird `Cannot find module './…js'` error | Stop the site, run `rm -rf apps/web/.next`, then `npm run dev` again. |
+| Port already in use (`EADDRINUSE`) | Close the other program using port **3000** or **8000**, or pick another port (advanced). |
+| Extension says API error | Same **ingest secret** in extension and `.env`? API running? |
+| AI button says OpenAI not configured | Set `OPENAI_API_KEY` in `services/api/.env` and **restart** the API. |
+
+**One-command helper (Mac/Linux):** if Mongo is already on `localhost:27017`, from the repo root you can run `scripts/dev-local.sh` to start API + web together (see script for details).
+
+---
+
 ## Local development
 
 1. **MongoDB:** from repo root, `docker compose up -d` (or use a local install).
