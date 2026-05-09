@@ -1,6 +1,19 @@
 import Link from "next/link";
 import { fetchJobs } from "@/lib/api";
 
+function statusBadgeClass(status: string): string {
+  const base = "ja-badge";
+  const map: Record<string, string> = {
+    saved: `${base} ja-badge--saved`,
+    applied: `${base} ja-badge--applied`,
+    phone: `${base} ja-badge--phone`,
+    onsite: `${base} ja-badge--onsite`,
+    offer: `${base} ja-badge--offer`,
+    rejected: `${base} ja-badge--rejected`,
+  };
+  return map[status] ?? base;
+}
+
 export default async function HomePage() {
   let jobs: Awaited<ReturnType<typeof fetchJobs>> = [];
   let error: string | null = null;
@@ -10,59 +23,53 @@ export default async function HomePage() {
     error = e instanceof Error ? e.message : "Could not reach the API.";
   }
 
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
   return (
-    <main style={{ padding: "2rem", maxWidth: "48rem", margin: "0 auto" }}>
-      <header style={{ marginBottom: "2rem" }}>
-        <h1 style={{ margin: "0 0 0.5rem", fontSize: "1.75rem" }}>Job inbox</h1>
-        <p style={{ margin: 0, color: "#475569", lineHeight: 1.6 }}>
-          Jobs appear here after you ingest them from the Chrome extension or other clients. API:{" "}
-          <code style={{ fontSize: "0.9em" }}>{process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}</code>
-        </p>
-      </header>
+    <div className="ja-main">
+      <p className="ja-kicker">Pipeline</p>
+      <h1 className="ja-title">Inbox</h1>
+      <p className="ja-subtitle" style={{ marginBottom: "0.35rem" }}>
+        Saved roles from the Chrome extension and other sources.
+      </p>
+      <p className="ja-hint" style={{ marginBottom: "1.75rem" }}>
+        API <span className="ja-code">{apiUrl}</span>
+        {!error && jobs.length > 0 ? (
+          <>
+            {" "}
+            · <strong style={{ color: "var(--text-secondary)" }}>{jobs.length}</strong>{" "}
+            {jobs.length === 1 ? "role" : "roles"}
+          </>
+        ) : null}
+      </p>
 
       {error ? (
-        <div
-          style={{
-            padding: "1rem",
-            background: "#fef2f2",
-            border: "1px solid #fecaca",
-            borderRadius: "8px",
-            color: "#991b1b",
-          }}
-        >
-          <strong>API unavailable.</strong> {error} Start MongoDB and FastAPI (see repo README).
+        <div className="ja-alert ja-alert--error" role="alert">
+          <strong>API unavailable.</strong> {error} Start MongoDB and FastAPI (see README).
         </div>
       ) : jobs.length === 0 ? (
-        <p style={{ color: "#64748b" }}>
-          No jobs yet. Open a LinkedIn job and use the extension to send it here.
-        </p>
+        <div className="ja-empty">
+          <strong style={{ color: "var(--text)" }}>No jobs yet.</strong>
+          <br />
+          Open a LinkedIn posting and use the extension to send it here.
+        </div>
       ) : (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        <ul className="ja-job-list">
           {jobs.map((job) => (
-            <li
-              key={job.id}
-              style={{
-                borderBottom: "1px solid #e2e8f0",
-                padding: "1rem 0",
-              }}
-            >
-              <Link
-                href={`/jobs/${job.id}/apply`}
-                style={{
-                  fontWeight: 600,
-                  color: "#0f172a",
-                  textDecoration: "none",
-                }}
-              >
-                {job.title}
+            <li key={job.id}>
+              <Link href={`/jobs/${job.id}/apply`} className="ja-job-row">
+                <p className="ja-job-row-title">{job.title}</p>
+                <div className="ja-job-row-meta">
+                  {[job.company, job.location].filter(Boolean).join(" · ") || "—"}
+                  <span className={statusBadgeClass(job.application_status)}>
+                    {job.application_status}
+                  </span>
+                </div>
               </Link>
-              <div style={{ fontSize: "0.9rem", color: "#64748b", marginTop: "0.25rem" }}>
-                {[job.company, job.location, job.application_status].filter(Boolean).join(" · ")}
-              </div>
             </li>
           ))}
         </ul>
       )}
-    </main>
+    </div>
   );
 }

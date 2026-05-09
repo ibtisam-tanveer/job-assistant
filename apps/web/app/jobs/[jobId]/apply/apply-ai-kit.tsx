@@ -48,139 +48,112 @@ export function ApplyAiKit({ job }: Props) {
       setResume(j.tailored_resume_text ?? "");
       setLetter(j.cover_letter_text ?? "");
       setAts(j.ats_report ?? null);
-      setMessage("Generated and saved. You can refresh the page anytime.");
+      setMessage("Done — outputs are saved on this job.");
       router.refresh();
     } finally {
       setBusy(false);
     }
   }
 
-  const cardStyle = {
-    marginTop: "1.5rem",
-    padding: "1.25rem",
-    border: "1px solid #e2e8f0",
-    borderRadius: "8px",
-    background: "#f8fafc",
-  } as const;
-
   return (
-    <section style={cardStyle}>
-      <h2 style={{ margin: "0 0 0.75rem", fontSize: "1.1rem" }}>Tailored documents & ATS</h2>
-      <p style={{ margin: "0 0 1rem", fontSize: "0.9rem", color: "#475569", lineHeight: 1.5 }}>
-        Paste your master resume or career summary below. The API uses OpenAI to draft a tailored
-        resume, a cover letter, and a simple ATS-style keyword report. Requires{" "}
-        <code style={{ fontSize: "0.85em" }}>OPENAI_API_KEY</code> in{" "}
-        <code style={{ fontSize: "0.85em" }}>services/api/.env</code> and a captured job
-        description.
+    <section className="ja-card">
+      <h2 className="ja-section-title">AI application kit</h2>
+      <p className="ja-hint" style={{ marginTop: "-0.25rem", marginBottom: "1.1rem" }}>
+        Paste your master resume or bullet summary. Requires{" "}
+        <span className="ja-code">OPENAI_API_KEY</span> in the API{" "}
+        <span className="ja-code">.env</span> and a captured job description above.
       </p>
-      <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600 }}>
-        Your background / master resume
+      <div className="ja-field">
+        <label className="ja-label" htmlFor="ja-profile">
+          Your background
+        </label>
         <textarea
+          id="ja-profile"
+          className="ja-textarea"
           value={profile}
           onChange={(e) => setProfile(e.target.value)}
           rows={8}
-          placeholder="Paste bullets: roles, stack, impact metrics, education…"
-          style={{
-            display: "block",
-            marginTop: "0.35rem",
-            width: "100%",
-            padding: "0.5rem",
-            borderRadius: "6px",
-            border: "1px solid #cbd5e1",
-            fontFamily: "inherit",
-            fontSize: "0.9rem",
-          }}
+          placeholder="Roles, stack, metrics, education — be specific so outputs stay truthful."
         />
-      </label>
+      </div>
       <button
         type="button"
+        className="ja-btn ja-btn--primary"
         onClick={() => void generate()}
         disabled={busy}
-        style={{
-          marginTop: "1rem",
-          padding: "0.5rem 1rem",
-          borderRadius: "6px",
-          border: "none",
-          background: "#0f172a",
-          color: "#fff",
-          cursor: busy ? "wait" : "pointer",
-        }}
       >
-        {busy ? "Generating (may take 30–60s)…" : "Generate resume, cover letter & ATS report"}
+        {busy ? "Generating… (often 30–60s)" : "Generate resume, letter & ATS check"}
       </button>
       {message ? (
-        <p style={{ marginTop: "0.75rem", fontSize: "0.875rem", color: "#334155" }}>{message}</p>
+        message.startsWith("Done") ? (
+          <div className="ja-alert ja-alert--success" style={{ marginTop: "1rem" }}>
+            {message}
+          </div>
+        ) : (
+          <p className="ja-message">{message}</p>
+        )
       ) : null}
 
       {resume ? (
-        <div style={{ marginTop: "1.25rem" }}>
-          <h3 style={{ fontSize: "1rem", margin: "0 0 0.5rem" }}>Tailored resume</h3>
-          <pre
-            style={{
-              whiteSpace: "pre-wrap",
-              fontFamily: "inherit",
-              fontSize: "0.88rem",
-              lineHeight: 1.5,
-              margin: 0,
-              padding: "1rem",
-              background: "#fff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "8px",
-              maxHeight: "22rem",
-              overflow: "auto",
-            }}
-          >
-            {resume}
-          </pre>
+        <div style={{ marginTop: "1.35rem" }}>
+          <hr className="ja-divider" />
+          <h3 className="ja-section-title">Tailored resume</h3>
+          <pre className="ja-prose">{resume}</pre>
         </div>
       ) : null}
 
       {letter ? (
-        <div style={{ marginTop: "1.25rem" }}>
-          <h3 style={{ fontSize: "1rem", margin: "0 0 0.5rem" }}>Cover letter</h3>
-          <pre
-            style={{
-              whiteSpace: "pre-wrap",
-              fontFamily: "inherit",
-              fontSize: "0.88rem",
-              lineHeight: 1.5,
-              margin: 0,
-              padding: "1rem",
-              background: "#fff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "8px",
-              maxHeight: "18rem",
-              overflow: "auto",
-            }}
-          >
+        <div style={{ marginTop: "1.35rem" }}>
+          <hr className="ja-divider" />
+          <h3 className="ja-section-title">Cover letter</h3>
+          <pre className="ja-prose" style={{ maxHeight: "18rem" }}>
             {letter}
           </pre>
         </div>
       ) : null}
 
       {ats && typeof ats.keyword_coverage_percent === "number" ? (
-        <div style={{ marginTop: "1.25rem" }}>
-          <h3 style={{ fontSize: "1rem", margin: "0 0 0.5rem" }}>ATS-style check</h3>
-          <p style={{ margin: "0 0 0.5rem", fontSize: "0.95rem" }}>
-            Estimated keyword coverage:{" "}
-            <strong>{ats.keyword_coverage_percent}%</strong>
-          </p>
+        <div style={{ marginTop: "1.35rem" }}>
+          <hr className="ja-divider" />
+          <h3 className="ja-section-title">ATS-style check</h3>
+          <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", alignItems: "flex-end" }}>
+            <div>
+              <div className="ja-ats-score">{ats.keyword_coverage_percent}%</div>
+              <div className="ja-ats-label">estimated keyword overlap</div>
+            </div>
+          </div>
           {ats.matched_keywords && ats.matched_keywords.length > 0 ? (
-            <p style={{ fontSize: "0.88rem", color: "#166534", margin: "0.25rem 0" }}>
-              <strong>Matched:</strong> {ats.matched_keywords.join(", ")}
-            </p>
+            <div style={{ marginTop: "0.85rem" }}>
+              <span className="ja-label" style={{ marginBottom: "0.35rem" }}>
+                Strong matches
+              </span>
+              <div className="ja-chip-list">
+                {ats.matched_keywords.map((k) => (
+                  <span key={k} className="ja-chip ja-chip--ok">
+                    {k}
+                  </span>
+                ))}
+              </div>
+            </div>
           ) : null}
           {ats.missing_keywords && ats.missing_keywords.length > 0 ? (
-            <p style={{ fontSize: "0.88rem", color: "#991b1b", margin: "0.25rem 0" }}>
-              <strong>Weak / missing:</strong> {ats.missing_keywords.join(", ")}
-            </p>
+            <div style={{ marginTop: "0.85rem" }}>
+              <span className="ja-label" style={{ marginBottom: "0.35rem" }}>
+                Gaps to consider
+              </span>
+              <div className="ja-chip-list">
+                {ats.missing_keywords.map((k) => (
+                  <span key={k} className="ja-chip ja-chip--miss">
+                    {k}
+                  </span>
+                ))}
+              </div>
+            </div>
           ) : null}
           {ats.suggestions && ats.suggestions.length > 0 ? (
-            <ul style={{ margin: "0.5rem 0 0", paddingLeft: "1.25rem", fontSize: "0.88rem" }}>
+            <ul className="ja-list-tight">
               {ats.suggestions.map((s, i) => (
-                <li key={i} style={{ marginBottom: "0.25rem" }}>
-                  {s}
-                </li>
+                <li key={i}>{s}</li>
               ))}
             </ul>
           ) : null}

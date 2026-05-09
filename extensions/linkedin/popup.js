@@ -3,6 +3,15 @@ const secret = document.getElementById("secret");
 const webUrl = document.getElementById("webUrl");
 const statusEl = document.getElementById("status");
 
+/** @param {"neutral" | "busy" | "error" | "ok"} kind */
+function setStatus(text, kind = "neutral") {
+  statusEl.textContent = text;
+  statusEl.classList.remove("ext-status--busy", "ext-status--error", "ext-status--ok");
+  if (kind === "busy") statusEl.classList.add("ext-status--busy");
+  if (kind === "error") statusEl.classList.add("ext-status--error");
+  if (kind === "ok") statusEl.classList.add("ext-status--ok");
+}
+
 /** Must match INGEST_SECRET in services/api/.env for local dev. */
 const LOCAL_DEV_INGEST = "jobassistant-local-dev-ingest";
 
@@ -197,7 +206,7 @@ async function load() {
       webBaseUrl: web,
       ingestSecret: sec,
     });
-    statusEl.textContent = "Using local dev ingest secret (see services/api/.env).";
+    setStatus("Using local dev ingest secret (see services/api/.env).", "ok");
   }
 
   apiUrl.value = api;
@@ -211,11 +220,11 @@ document.getElementById("save").addEventListener("click", async () => {
     ingestSecret: secret.value,
     webBaseUrl: webUrl.value.replace(/\/$/, ""),
   });
-  statusEl.textContent = "Saved.";
+  setStatus("Saved.", "ok");
 });
 
 document.getElementById("send").addEventListener("click", async () => {
-  statusEl.textContent = "Working…";
+  setStatus("Working…", "busy");
   const base = apiUrl.value.replace(/\/$/, "");
   const web = webUrl.value.replace(/\/$/, "");
   const token = effectiveIngestToken(secret.value);
@@ -225,19 +234,21 @@ document.getElementById("send").addEventListener("click", async () => {
   }
 
   if (!token) {
-    statusEl.textContent = "Set ingest secret to the value of INGEST_SECRET in services/api/.env";
+    setStatus("Set ingest secret to the value of INGEST_SECRET in services/api/.env", "error");
     return;
   }
 
   // lastFocusedWindow = the browser window you were using (not the popup)
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   if (!tab?.id) {
-    statusEl.textContent = "No active tab.";
+    setStatus("No active tab.", "error");
     return;
   }
   if (!tab.url || !/linkedin\.com/i.test(tab.url)) {
-    statusEl.textContent =
-      "Active tab is not LinkedIn. Click the job tab first, then open this popup again.";
+    setStatus(
+      "Active tab is not LinkedIn. Click the job tab first, then open this popup again.",
+      "error",
+    );
     return;
   }
 
@@ -248,14 +259,16 @@ document.getElementById("send").addEventListener("click", async () => {
       func: scrapeLinkedInJobPageInPage,
     });
   } catch (e) {
-    statusEl.textContent =
-      (e && e.message) || "Could not read the page. Reload the job on LinkedIn and retry.";
+    setStatus(
+      (e && e.message) || "Could not read the page. Reload the job on LinkedIn and retry.",
+      "error",
+    );
     return;
   }
 
   const result = injected?.result;
   if (!result || result.error) {
-    statusEl.textContent = result?.error || "Could not read this page.";
+    setStatus(result?.error || "Could not read this page.", "error");
     return;
   }
 
@@ -280,18 +293,20 @@ document.getElementById("send").addEventListener("click", async () => {
       body: JSON.stringify(payload),
     });
   } catch (e) {
-    statusEl.textContent =
+    setStatus(
       "Network error — is the API running? Try: " +
-      base +
-      "/health  (" +
-      ((e && e.message) || "fetch failed") +
-      ")";
+        base +
+        "/health  (" +
+        ((e && e.message) || "fetch failed") +
+        ")",
+      "error",
+    );
     return;
   }
 
   if (!res.ok) {
     const t = await res.text();
-    statusEl.textContent = `API error ${res.status}: ${t.slice(0, 200)}`;
+    setStatus(`API error ${res.status}: ${t.slice(0, 200)}`, "error");
     return;
   }
 
@@ -299,7 +314,10 @@ document.getElementById("send").addEventListener("click", async () => {
   const path = data.apply_path || `/jobs/${data.job_id}/apply`;
   const openUrl = `${web}${path.startsWith("/") ? path : `/${path}`}`;
   await chrome.tabs.create({ url: openUrl });
-  statusEl.textContent = data.deduplicated ? "Opened existing job (deduped)." : "Saved and opened.";
+  setStatus(
+    data.deduplicated ? "Opened existing job (deduped)." : "Saved and opened.",
+    "ok",
+  );
 });
 
 load();
