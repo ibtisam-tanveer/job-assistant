@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useId, useState } from "react";
-import type { Job } from "@/lib/api";
+import { useCallback, useState } from "react";
+import type { JdSections, Job } from "@/lib/api";
 import { ApplyAiKit } from "./apply-ai-kit";
 import { ApplyForm } from "./apply-form";
 
@@ -10,7 +10,8 @@ type TabId = "posting" | "tracker" | "ai";
 type Props = {
   job: Job;
   descriptionText: string | null;
-  /** Remount AI kit when job updates from server */
+  jdSections?: JdSections | null;
+  initialTab?: TabId;
   aiKitKey: string;
 };
 
@@ -20,9 +21,29 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "ai", label: "AI kit" },
 ];
 
-export function ApplyTabs({ job, descriptionText, aiKitKey }: Props) {
-  const baseId = useId();
-  const [tab, setTab] = useState<TabId>("posting");
+function tabBadge(job: Job, id: TabId): string | null {
+  if (id === "posting") {
+    return (job.description_text || "").trim().length > 80 ? "JD" : "!";
+  }
+  if (id === "tracker") {
+    if (job.application_status !== "saved") return job.application_status;
+    return job.notes?.trim() ? "•" : null;
+  }
+  if (job.tailored_resume_text || job.cover_letter_text) return "✓";
+  if (job.uploaded_resume_text?.trim() || job.profile_text?.trim()) return "CV";
+  return null;
+}
+
+export function ApplyTabs({
+  job,
+  descriptionText,
+  jdSections,
+  initialTab = "posting",
+  aiKitKey,
+}: Props) {
+  const prefix = `job-${job.id}`;
+  const elId = (suffix: string) => `${prefix}-${suffix}`;
+  const [tab, setTab] = useState<TabId>(initialTab);
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent, index: number) => {
@@ -33,48 +54,62 @@ export function ApplyTabs({ job, descriptionText, aiKitKey }: Props) {
           ? (index + 1) % TABS.length
           : (index - 1 + TABS.length) % TABS.length;
       setTab(TABS[next].id);
-      const el = document.getElementById(`${baseId}-tab-${TABS[next].id}`);
-      el?.focus();
+      document.getElementById(`${prefix}-tab-${TABS[next].id}`)?.focus();
     },
-    [baseId],
+    [prefix],
   );
+
+  const sections = jdSections?.sections ?? [];
 
   return (
     <div className="ja-tabs">
       <div className="ja-tabs-list" role="tablist" aria-label="Application sections">
         {TABS.map(({ id, label }, i) => {
           const selected = tab === id;
+          const badge = tabBadge(job, id);
           return (
             <button
               key={id}
               type="button"
-              id={`${baseId}-tab-${id}`}
+              id={elId(`tab-${id}`)}
               role="tab"
               aria-selected={selected}
-              aria-controls={`${baseId}-panel-${id}`}
-              tabIndex={selected ? 0 : -1}
+              aria-controls={elId(`panel-${id}`)}
+              tabIndex={0}
               className="ja-tab"
               data-active={selected ? "true" : undefined}
               onClick={() => setTab(id)}
               onKeyDown={(e) => onKeyDown(e, i)}
             >
               {label}
+              {badge ? <span className="ja-tab-badge">{badge}</span> : null}
             </button>
           );
         })}
       </div>
 
       <div
-        id={`${baseId}-panel-posting`}
+        id={elId("panel-posting")}
         role="tabpanel"
-        aria-labelledby={`${baseId}-tab-posting`}
+        aria-labelledby={elId("tab-posting")}
         hidden={tab !== "posting"}
         className="ja-tabs-panel"
       >
         {descriptionText ? (
           <section className="ja-card">
             <h2 className="ja-section-title">Job description</h2>
-            <pre className="ja-prose ja-prose--tab">{descriptionText}</pre>
+            {sections.length > 0 ? (
+              <div className="ja-jd-sections">
+                {sections.map((sec) => (
+                  <details key={sec.id} className="ja-jd-section" open={sections.length <= 3}>
+                    <summary className="ja-jd-section-title">{sec.title}</summary>
+                    <pre className="ja-prose ja-prose--section">{sec.body}</pre>
+                  </details>
+                ))}
+              </div>
+            ) : (
+              <pre className="ja-prose ja-prose--tab">{descriptionText}</pre>
+            )}
           </section>
         ) : (
           <div className="ja-alert ja-alert--warn">
@@ -85,9 +120,9 @@ export function ApplyTabs({ job, descriptionText, aiKitKey }: Props) {
       </div>
 
       <div
-        id={`${baseId}-panel-tracker`}
+        id={elId("panel-tracker")}
         role="tabpanel"
-        aria-labelledby={`${baseId}-tab-tracker`}
+        aria-labelledby={elId("tab-tracker")}
         hidden={tab !== "tracker"}
         className="ja-tabs-panel"
       >
@@ -95,9 +130,9 @@ export function ApplyTabs({ job, descriptionText, aiKitKey }: Props) {
       </div>
 
       <div
-        id={`${baseId}-panel-ai`}
+        id={elId("panel-ai")}
         role="tabpanel"
-        aria-labelledby={`${baseId}-tab-ai`}
+        aria-labelledby={elId("tab-ai")}
         hidden={tab !== "ai"}
         className="ja-tabs-panel"
       >

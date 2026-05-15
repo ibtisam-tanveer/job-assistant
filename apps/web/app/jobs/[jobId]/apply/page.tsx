@@ -1,12 +1,24 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchJob } from "@/lib/api";
+import { fetchJob } from "@/lib/api-server";
+import { ApplyHeroStatus } from "./apply-hero-status";
 import { ApplyTabs } from "./apply-tabs";
 
-type Props = { params: Promise<{ jobId: string }> };
+type Props = {
+  params: Promise<{ jobId: string }>;
+  searchParams: Promise<{ tab?: string }>;
+};
+
+function parseTab(raw: string | undefined): "posting" | "tracker" | "ai" {
+  if (raw === "tracker" || raw === "ai" || raw === "posting") return raw;
+  return "posting";
+}
 
 export default async function ApplyPage(props: Props) {
   const { jobId } = await props.params;
+  const { tab: tabRaw } = await props.searchParams;
+  const initialTab = parseTab(tabRaw);
+
   const job = await fetchJob(jobId);
   if (!job) notFound();
 
@@ -22,7 +34,7 @@ export default async function ApplyPage(props: Props) {
         <p className="ja-subtitle">
           {[job.company, job.location].filter(Boolean).join(" · ") || "—"}
         </p>
-        <div className="ja-hero-actions">
+        <div className="ja-hero-actions ja-hero-actions--row">
           <a
             href={job.source_url}
             target="_blank"
@@ -31,12 +43,15 @@ export default async function ApplyPage(props: Props) {
           >
             View original posting ↗
           </a>
+          <ApplyHeroStatus job={job} />
         </div>
       </header>
 
       <ApplyTabs
         job={job}
         descriptionText={job.description_text}
+        jdSections={job.jd_sections}
+        initialTab={initialTab}
         aiKitKey={`${job.id}-${job.updated_at}`}
       />
     </div>
