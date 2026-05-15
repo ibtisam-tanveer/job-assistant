@@ -37,11 +37,59 @@ function effectiveIngestToken(raw) {
 function scrapeLinkedInJobPageInPage() {
   const source_url = window.location.href;
 
-  function pickText(selList) {
+  const TITLE_MAX = 400;
+  const SHORT_MAX = 500;
+
+  function pickText(selList, maxLen = SHORT_MAX) {
     for (const sel of selList) {
       const el = document.querySelector(sel);
       const t = el?.textContent?.replace(/\s+/g, " ")?.trim();
-      if (t && t.length > 1 && t.length < 500) return t;
+      if (t && t.length > 1 && t.length < maxLen) return t;
+    }
+    return "";
+  }
+
+  /** LinkedIn often puts the role in og:title or document.title before "|". */
+  function titleFromMetaAndPageTitle() {
+    const og = document.querySelector('meta[property="og:title"]')?.getAttribute("content");
+    if (og) {
+      const t = og.replace(/\s+/g, " ").trim();
+      if (t.length > 2 && t.length < TITLE_MAX && !/^linkedin$/i.test(t)) return t;
+    }
+    const tw = document.querySelector('meta[name="twitter:title"]')?.getAttribute("content");
+    if (tw) {
+      const t = tw.replace(/\s+/g, " ").trim();
+      if (t.length > 2 && t.length < TITLE_MAX && !/^linkedin$/i.test(t)) return t;
+    }
+    const dt = document.title?.replace(/\s+/g, " ").trim() || "";
+    const parts = dt.split("|").map((s) => s.trim()).filter(Boolean);
+    if (parts.length >= 2 && /linkedin/i.test(parts[parts.length - 1])) {
+      const head = parts[0];
+      if (head.length > 2 && head.length < TITLE_MAX) return head;
+    }
+    return "";
+  }
+
+  /** Prefer h1 inside job top-card regions (avoids grabbing nav or unrelated h1). */
+  function titleFromJobRegions() {
+    const regionSelectors = [
+      ".job-details-jobs-unified-top-card__job-title",
+      ".jobs-unified-top-card__job-title",
+      ".jobs-details-top-card__job-title",
+      ".topcard__title",
+      "[class*='jobs-unified-top-card__job-title']",
+      "[class*='job-details-jobs-unified-top-card__job-title']",
+    ];
+    for (const rs of regionSelectors) {
+      const region = document.querySelector(rs);
+      if (!region) continue;
+      const h1 = region.querySelector("h1");
+      if (h1) {
+        const t = h1.textContent?.replace(/\s+/g, " ").trim();
+        if (t && t.length > 2 && t.length < TITLE_MAX) return t;
+      }
+      const t2 = region.textContent?.replace(/\s+/g, " ").trim();
+      if (t2 && t2.length > 2 && t2.length < TITLE_MAX) return t2;
     }
     return "";
   }
@@ -66,8 +114,12 @@ function scrapeLinkedInJobPageInPage() {
           if (!item || typeof item !== "object") continue;
           const type = item["@type"];
           const types = Array.isArray(type) ? type : type ? [type] : [];
-          if (!types.includes("JobPosting")) continue;
-          const title = item.title;
+          const isJob = types.some((x) => String(x).toLowerCase() === "jobposting");
+          if (!isJob) continue;
+          let title = item.title;
+          if (title && typeof title === "object" && title !== null) {
+            title = title.value || title.name || title["@value"];
+          }
           if (!title || typeof title !== "string") continue;
           const org = item.hiringOrganization;
           const company =
@@ -106,16 +158,27 @@ function scrapeLinkedInJobPageInPage() {
 
   const title =
     ld?.title ||
-    pickText([
-      ".jobs-unified-top-card__job-title",
-      ".job-details-jobs-unified-top-card__job-title",
-      "h1.t-24",
-      "h1[class*='job-title']",
-      '[data-test-id="job-title"]',
-      ".jobs-details-top-card__job-title",
-      "main h1",
-      "h1",
-    ]);
+    pickText(
+      [
+        ".job-details-jobs-unified-top-card__job-title h1",
+        ".job-details-jobs-unified-top-card__job-title h1 a",
+        ".jobs-unified-top-card__job-title h1",
+        ".jobs-unified-top-card__job-title h1 a",
+        ".topcard__title",
+        ".topcard__title h1",
+        ".jobs-unified-top-card__job-title",
+        ".job-details-jobs-unified-top-card__job-title",
+        "h1.t-24",
+        "h1[class*='job-title']",
+        '[data-test-id="job-title"]',
+        ".jobs-details-top-card__job-title",
+        "main h1",
+      ],
+      TITLE_MAX,
+    ) ||
+    titleFromJobRegions() ||
+    titleFromMetaAndPageTitle() ||
+    pickText(["h1"], TITLE_MAX);
 
   const company =
     ld?.company ||

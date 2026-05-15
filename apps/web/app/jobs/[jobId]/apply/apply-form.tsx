@@ -1,9 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Job } from "@/lib/api";
-import { getApiBase } from "@/lib/api";
+import { patchJobAction } from "./job-actions";
 
 const STATUSES = [
   "saved",
@@ -16,10 +15,26 @@ const STATUSES = [
 
 type Props = { job: Job };
 
+function toDatetimeLocal(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function fromDatetimeLocal(v: string): string | null {
+  if (!v.trim()) return null;
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
 export function ApplyForm({ job }: Props) {
-  const router = useRouter();
   const [status, setStatus] = useState(job.application_status);
   const [notes, setNotes] = useState(job.notes);
+  const [appliedAt, setAppliedAt] = useState(toDatetimeLocal(job.applied_at));
+  const [interviewAt, setInterviewAt] = useState(toDatetimeLocal(job.interview_at));
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -27,17 +42,22 @@ export function ApplyForm({ job }: Props) {
     setSaving(true);
     setMessage(null);
     try {
-      const res = await fetch(`${getApiBase()}/jobs/${job.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ application_status: status, notes }),
+      const result = await patchJobAction(job.id, {
+        application_status: status,
+        notes,
+        applied_at: fromDatetimeLocal(appliedAt),
+        interview_at: fromDatetimeLocal(interviewAt),
       });
-      if (!res.ok) {
-        setMessage(`Save failed (${res.status})`);
+      if (!result.ok) {
+        setMessage(result.error);
         return;
       }
+      const j = result.job;
+      setStatus(j.application_status);
+      setNotes(j.notes);
+      setAppliedAt(toDatetimeLocal(j.applied_at));
+      setInterviewAt(toDatetimeLocal(j.interview_at));
       setMessage("Saved.");
-      router.refresh();
     } finally {
       setSaving(false);
     }
@@ -47,7 +67,7 @@ export function ApplyForm({ job }: Props) {
     <section className="ja-card ja-card--muted">
       <h2 className="ja-section-title">Tracker</h2>
       <p className="ja-hint" style={{ marginTop: "-0.25rem", marginBottom: "1rem" }}>
-        Status and notes sync to your database.
+        Status, dates, and notes sync to your database.
       </p>
       <div className="ja-field">
         <label className="ja-label" htmlFor="ja-status">
@@ -65,6 +85,32 @@ export function ApplyForm({ job }: Props) {
             </option>
           ))}
         </select>
+      </div>
+      <div className="ja-form-row">
+        <div className="ja-field">
+          <label className="ja-label" htmlFor="ja-applied-at">
+            Applied date
+          </label>
+          <input
+            id="ja-applied-at"
+            type="datetime-local"
+            className="ja-input"
+            value={appliedAt}
+            onChange={(e) => setAppliedAt(e.target.value)}
+          />
+        </div>
+        <div className="ja-field">
+          <label className="ja-label" htmlFor="ja-interview-at">
+            Interview date
+          </label>
+          <input
+            id="ja-interview-at"
+            type="datetime-local"
+            className="ja-input"
+            value={interviewAt}
+            onChange={(e) => setInterviewAt(e.target.value)}
+          />
+        </div>
       </div>
       <div className="ja-field">
         <label className="ja-label" htmlFor="ja-notes">
